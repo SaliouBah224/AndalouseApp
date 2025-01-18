@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TravelSnap - Messagerie</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .navbar {
+      background-color: #28a745;
+      padding: 10px;
+      color: white;
+      display: flex;
+      justify-content: space-around;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .chat-container {
+      display: flex;
+      gap: 20px;
+    }
+    .conversations {
+      width: 30%;
+      border-right: 1px solid #ccc;
+      padding-right: 20px;
+    }
+    .conversations h2 {
+      margin-bottom: 10px;
+    }
+    .conversations ul {
+      list-style: none;
+      padding: 0;
+    }
+    .conversations li {
+      padding: 10px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .conversations li:hover {
+      background-color: #f0f0f0;
+    }
+    .messages {
+      flex: 1;
+    }
+    .messages h2 {
+      margin-bottom: 10px;
+    }
+    .messages-list {
+      height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .message {
+      margin-bottom: 10px;
+    }
+    .message.sent {
+      text-align: right;
+    }
+    .message.received {
+      text-align: left;
+    }
+    .message-input {
+      display: flex;
+      gap: 10px;
+    }
+    .message-input input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .message-input button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .message-input button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: red;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Barre de navigation -->
+  <div class="navbar">
+    <a href="accueil.html">Accueil</a>
+    <a href="publication.html">Publication</a>
+    <a href="profil.html">Profil</a>
+    <a href="messagerie.html">Messagerie</a>
+    <a href="parametres.html">Paramètres</a>
+  </div>
+
+  <!-- Contenu de la page -->
+  <div class="container">
+    <h1>Messagerie</h1>
+    <div class="chat-container">
+      <!-- Liste des conversations -->
+      <div class="conversations">
+        <h2>Conversations</h2>
+        <ul id="conversations-list">
+          <!-- Les conversations seront ajoutées ici dynamiquement -->
+        </ul>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages">
+        <h2>Messages</h2>
+        <div class="messages-list" id="messages-list">
+          <!-- Les messages seront ajoutés ici dynamiquement -->
+        </div>
+        <div class="message-input">
+          <input type="text" id="message-input" placeholder="Écrivez un message...">
+          <button id="send-message-btn">Envoyer</button>
+        </div>
+        <div class="error" id="error-message"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      query,
+      where,
+      onSnapshot,
+      addDoc,
+      orderBy,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCv4krgMmqK_EZpxGHoKe6fHkyy71VrDyc",
+      authDomain: "andalouse-88fee.firebaseapp.com",
+      projectId: "andalouse-88fee",
+      storageBucket: "andalouse-88fee.appspot.com",
+      messagingSenderId: "583802303191",
+      appId: "1:583802303191:web:7bdb6245ba14c024f2f692",
+    };
+
+    // Initialiser Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Vérifier l'état de connexion
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Rediriger vers la page de connexion si l'utilisateur n'est pas connecté
+        window.location.href = "index.html";
+      } else {
+        // Charger les conversations
+        loadConversations(user.uid);
+      }
+    });
+
+    // Charger les conversations
+    async function loadConversations(userId) {
+      const conversationsList = document.getElementById('conversations-list');
+      const q = query(collection(db, "messages"), where("participants", "array-contains", userId));
+
+      onSnapshot(q, (querySnapshot) => {
+        conversationsList.innerHTML = ""; // Vider le contenu actuel
+        const participants = new Set();
+
+        querySnapshot.forEach((doc) => {
+          const message = doc.data();
+          const otherParticipant = message.participants.find(id => id !== userId);
+
+          if (!participants.has(otherParticipant)) {
+            participants.add(otherParticipant);
+            const li = document.createElement('li');
+            li.textContent = `Utilisateur ${otherParticipant}`;
+            li.addEventListener('click', () => loadMessages(userId, otherParticipant));
+            conversationsList.appendChild(li);
+          }
+        });
+      });
+    }
+
+    // Charger les messages d'une conversation
+    let currentRecipientId = null;
+
+    async function loadMessages(senderId, recipientId) {
+      currentRecipientId = recipientId;
+      const messagesList = document.getElementById('messages-list');
+      const q = query(
+        collection(db, "messages"),
+        where("participants", "array-contains", senderId),
+        orderBy("timestamp")
+      );
+
+      onSnapshot(q, (querySnapshot) => {
+        messagesList.innerHTML = ""; // Vider le contenu actuel
+        querySnapshot.forEach((doc) => {
+          const message = doc.data();
+          if (message.participants.includes(recipientId)) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            messageElement.classList.add(message.senderId === senderId ? 'sent' : 'received');
+            messageElement.textContent = message.text;
+            messagesList.appendChild(messageElement);
+          }
+        });
+
+        // Faire défiler vers le bas pour voir les nouveaux messages
+        messagesList.scrollTop = messagesList.scrollHeight;
+      });
+    }
+
+    // Envoyer un message
+    document.getElementById('send-message-btn').addEventListener('click', async () => {
+      const messageText = document.getElementById('message-input').value;
+
+      if (!messageText || !currentRecipientId) {
+        document.getElementById('error-message').textContent = "Veuillez entrer un message et sélectionner une conversation.";
+        return;
+      }
+
+      try {
+        const senderId = auth.currentUser.uid;
+        await addDoc(collection(db, "messages"), {
+          senderId: senderId,
+          recipientId: currentRecipientId,
+          participants: [senderId, currentRecipientId],
+          text: messageText,
+          timestamp: new Date(),
+        });
+
+        // Effacer le champ de message
+        document.getElementById('message-input').value = "";
+      } catch (error) {
+        document.getElementById('error-message').textContent = "Erreur lors de l'envoi du message : " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
