@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TravelSnap - Accueil</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .navbar {
+      background-color: #28a745;
+      padding: 10px;
+      color: white;
+      display: flex;
+      justify-content: space-around;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .post {
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 20px;
+    }
+    .post img {
+      width: 100%;
+      border-radius: 8px;
+    }
+    .post-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .post-actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .post-actions button.liked {
+      color: red;
+    }
+    .comments {
+      margin-top: 10px;
+    }
+    .comment {
+      display: flex;
+      gap: 10px;
+      margin-top: 5px;
+    }
+    .comment input {
+      flex: 1;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Barre de navigation -->
+  <div class="navbar">
+    <a href="accueil.html">Accueil</a>
+    <a href="publication.html">Publication</a>
+    <a href="profil.html">Profil</a>
+    <a href="messagerie.html">Messagerie</a>
+    <a href="parametres.html">Paramètres</a>
+  </div>
+
+  <!-- Contenu de la page -->
+  <div class="container">
+    <h1>Flux de posts</h1>
+    <div id="posts-container">
+      <!-- Les posts seront ajoutés ici dynamiquement -->
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      query,
+      onSnapshot,
+      updateDoc,
+      doc,
+      arrayUnion,
+      arrayRemove,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCv4krgMmqK_EZpxGHoKe6fHkyy71VrDyc",
+      authDomain: "andalouse-88fee.firebaseapp.com",
+      projectId: "andalouse-88fee",
+      storageBucket: "andalouse-88fee.appspot.com",
+      messagingSenderId: "583802303191",
+      appId: "1:583802303191:web:7bdb6245ba14c024f2f692",
+    };
+
+    // Initialiser Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Vérifier l'état de connexion
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Rediriger vers la page de connexion si l'utilisateur n'est pas connecté
+        window.location.href = "index.html";
+      } else {
+        // Charger les posts
+        loadPosts();
+      }
+    });
+
+    // Charger les posts
+    async function loadPosts() {
+      const postsContainer = document.getElementById('posts-container');
+      const q = query(collection(db, "posts"));
+
+      onSnapshot(q, (querySnapshot) => {
+        postsContainer.innerHTML = ""; // Vider le contenu actuel
+        querySnapshot.forEach((doc) => {
+          const post = doc.data();
+          const postElement = document.createElement('div');
+          postElement.classList.add('post');
+
+          // Afficher la photo
+          postElement.innerHTML = `
+            <img src="${post.photoURL}" alt="Post">
+            <p>${post.caption}</p>
+            <div class="post-actions">
+              <button class="like-btn ${post.likes.includes(auth.currentUser.uid) ? 'liked' : ''}" data-post-id="${doc.id}">
+                ❤️ ${post.likes.length}
+              </button>
+              <button class="comment-btn" data-post-id="${doc.id}">💬 Commenter</button>
+            </div>
+            <div class="comments">
+              ${post.comments.map(comment => `
+                <div class="comment">
+                  <strong>${comment.username}</strong>: ${comment.text}
+                </div>
+              `).join('')}
+              <div class="comment">
+                <input type="text" placeholder="Ajouter un commentaire..." data-post-id="${doc.id}">
+                <button class="add-comment-btn">Envoyer</button>
+              </div>
+            </div>
+          `;
+
+          postsContainer.appendChild(postElement);
+        });
+
+        // Gérer les likes
+        document.querySelectorAll('.like-btn').forEach(button => {
+          button.addEventListener('click', async () => {
+            const postId = button.getAttribute('data-post-id');
+            const postRef = doc(db, "posts", postId);
+
+            if (post.likes.includes(auth.currentUser.uid)) {
+              await updateDoc(postRef, {
+                likes: arrayRemove(auth.currentUser.uid),
+              });
+            } else {
+              await updateDoc(postRef, {
+                likes: arrayUnion(auth.currentUser.uid),
+              });
+            }
+          });
+        });
+
+        // Gérer les commentaires
+        document.querySelectorAll('.add-comment-btn').forEach(button => {
+          button.addEventListener('click', async () => {
+            const postId = button.parentElement.querySelector('input').getAttribute('data-post-id');
+            const commentText = button.parentElement.querySelector('input').value;
+
+            if (commentText.trim() !== "") {
+              const postRef = doc(db, "posts", postId);
+              await updateDoc(postRef, {
+                comments: arrayUnion({
+                  userId: auth.currentUser.uid,
+                  username: auth.currentUser.displayName || "Anonyme",
+                  text: commentText,
+                }),
+              });
+
+              // Effacer le champ de commentaire
+              button.parentElement.querySelector('input').value = "";
+            }
+          });
+        });
+      });
+    }
+  </script>
+</body>
+</html>
