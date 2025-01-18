@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connexion avec Firebase</title>
+  <title>TravelSnap - Connexion</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -58,7 +58,6 @@
       <input type="email" id="login-email" placeholder="Email" required>
       <input type="password" id="login-password" placeholder="Mot de passe" required>
       <button id="login-btn">Se connecter</button>
-      <p><a href="#" id="forgot-password">Mot de passe oublié ?</a></p>
       <p>Pas encore de compte ? <a href="#" id="show-signup">Créer un compte</a></p>
       <div class="error" id="login-error"></div>
     </div>
@@ -66,21 +65,12 @@
     <!-- Formulaire d'inscription -->
     <div id="signup-form" class="hidden">
       <h2>Créer un compte</h2>
-      <input type="text" id="signup-pseudo" placeholder="Pseudo" required>
+      <input type="text" id="signup-username" placeholder="Pseudo" required>
       <input type="email" id="signup-email" placeholder="Email" required>
       <input type="password" id="signup-password" placeholder="Mot de passe" required>
       <button id="signup-btn">Créer un compte</button>
       <p>Déjà un compte ? <a href="#" id="show-login">Se connecter</a></p>
       <div class="error" id="signup-error"></div>
-    </div>
-
-    <!-- Formulaire de réinitialisation de mot de passe -->
-    <div id="reset-password-form" class="hidden">
-      <h2>Réinitialiser le mot de passe</h2>
-      <input type="email" id="reset-email" placeholder="Email" required>
-      <button id="reset-btn">Envoyer le lien de réinitialisation</button>
-      <p><a href="#" id="show-login-from-reset">Retour à la connexion</a></p>
-      <div class="error" id="reset-error"></div>
     </div>
   </div>
 
@@ -91,8 +81,12 @@
       getAuth,
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
-      sendPasswordResetEmail,
     } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
     // Configuration Firebase
     const firebaseConfig = {
@@ -101,107 +95,71 @@
       projectId: "andalouse-88fee",
       storageBucket: "andalouse-88fee.appspot.com",
       messagingSenderId: "583802303191",
-      appId: "1:583802303191:web:7bdb6245ba14c024f2f692"
+      appId: "1:583802303191:web:7bdb6245ba14c024f2f692",
     };
 
     // Initialiser Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-
-    // Références aux éléments du DOM
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    const resetPasswordForm = document.getElementById('reset-password-form');
-
-    const loginEmail = document.getElementById('login-email');
-    const loginPassword = document.getElementById('login-password');
-    const loginError = document.getElementById('login-error');
-
-    const signupPseudo = document.getElementById('signup-pseudo');
-    const signupEmail = document.getElementById('signup-email');
-    const signupPassword = document.getElementById('signup-password');
-    const signupError = document.getElementById('signup-error');
-
-    const resetEmail = document.getElementById('reset-email');
-    const resetError = document.getElementById('reset-error');
-
-    // Afficher le formulaire d'inscription
-    document.getElementById('show-signup').addEventListener('click', (e) => {
-      e.preventDefault();
-      loginForm.classList.add('hidden');
-      signupForm.classList.remove('hidden');
-      resetPasswordForm.classList.add('hidden');
-    });
-
-    // Afficher le formulaire de connexion
-    document.getElementById('show-login').addEventListener('click', (e) => {
-      e.preventDefault();
-      signupForm.classList.add('hidden');
-      loginForm.classList.remove('hidden');
-      resetPasswordForm.classList.add('hidden');
-    });
-
-    // Afficher le formulaire de réinitialisation de mot de passe
-    document.getElementById('forgot-password').addEventListener('click', (e) => {
-      e.preventDefault();
-      loginForm.classList.add('hidden');
-      signupForm.classList.add('hidden');
-      resetPasswordForm.classList.remove('hidden');
-    });
-
-    // Retour au formulaire de connexion depuis la réinitialisation
-    document.getElementById('show-login-from-reset').addEventListener('click', (e) => {
-      e.preventDefault();
-      resetPasswordForm.classList.add('hidden');
-      loginForm.classList.remove('hidden');
-    });
+    const db = getFirestore(app);
 
     // Connexion
     document.getElementById('login-btn').addEventListener('click', async () => {
-      const email = loginEmail.value;
-      const password = loginPassword.value;
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
 
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         console.log("Utilisateur connecté :", user);
         alert("Connexion réussie !");
-        // Rediriger l'utilisateur vers une autre page
+        window.location.href = "accueil.html";
       } catch (error) {
-        loginError.textContent = error.message;
+        document.getElementById('login-error').textContent = error.message;
       }
     });
 
     // Inscription
     document.getElementById('signup-btn').addEventListener('click', async () => {
-      const pseudo = signupPseudo.value;
-      const email = signupEmail.value;
-      const password = signupPassword.value;
+      const username = document.getElementById('signup-username').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
 
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
-        console.log("Utilisateur inscrit :", user);
+
+        // Ajouter l'utilisateur à la collection `users`
+        await addDoc(collection(db, "users"), {
+          userId: user.uid,
+          username: username,
+          email: email,
+          bio: "",
+          photoURL: "",
+          isPrivate: false,
+          followers: [],
+          following: [],
+        });
+
         alert("Compte créé avec succès !");
-        // Rediriger l'utilisateur vers une autre page
+        window.location.href = "accueil.html";
       } catch (error) {
-        signupError.textContent = error.message;
+        document.getElementById('signup-error').textContent = error.message;
       }
     });
 
-    // Réinitialisation du mot de passe
-    document.getElementById('reset-btn').addEventListener('click', async () => {
-      const email = resetEmail.value;
+    // Basculer entre les formulaires
+    document.getElementById('show-signup').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('login-form').classList.add('hidden');
+      document.getElementById('signup-form').classList.remove('hidden');
+    });
 
-      try {
-        await sendPasswordResetEmail(auth, email);
-        alert("Un lien de réinitialisation a été envoyé à votre adresse email.");
-        resetPasswordForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-      } catch (error) {
-        resetError.textContent = error.message;
-      }
+    document.getElementById('show-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('signup-form').classList.add('hidden');
+      document.getElementById('login-form').classList.remove('hidden');
     });
   </script>
 </body>
-                                           </html>
+</html>
