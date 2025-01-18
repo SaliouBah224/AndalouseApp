@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TravelSnap - Publication</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .navbar {
+      background-color: #28a745;
+      padding: 10px;
+      color: white;
+      display: flex;
+      justify-content: space-around;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    input[type="file"] {
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: red;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Barre de navigation -->
+  <div class="navbar">
+    <a href="accueil.html">Accueil</a>
+    <a href="publication.html">Publication</a>
+    <a href="profil.html">Profil</a>
+    <a href="messagerie.html">Messagerie</a>
+    <a href="parametres.html">Paramètres</a>
+  </div>
+
+  <!-- Contenu de la page -->
+  <div class="container">
+    <h1>Publier une photo</h1>
+    <form id="post-form">
+      <input type="file" id="photo" accept="image/*" required>
+      <textarea id="caption" placeholder="Ajouter une légende..." required></textarea>
+      <input type="text" id="hashtags" placeholder="Ajouter des hashtags (séparés par des espaces)">
+      <button type="submit">Publier</button>
+      <div class="error" id="error-message"></div>
+    </form>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+    import {
+      getStorage,
+      ref,
+      uploadBytes,
+      getDownloadURL,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-storage.js";
+
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCv4krgMmqK_EZpxGHoKe6fHkyy71VrDyc",
+      authDomain: "andalouse-88fee.firebaseapp.com",
+      projectId: "andalouse-88fee",
+      storageBucket: "andalouse-88fee.appspot.com",
+      messagingSenderId: "583802303191",
+      appId: "1:583802303191:web:7bdb6245ba14c024f2f692",
+    };
+
+    // Initialiser Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // Vérifier l'état de connexion
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Rediriger vers la page de connexion si l'utilisateur n'est pas connecté
+        window.location.href = "index.html";
+      }
+    });
+
+    // Gérer la publication
+    document.getElementById('post-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const photoFile = document.getElementById('photo').files[0];
+      const caption = document.getElementById('caption').value;
+      const hashtags = document.getElementById('hashtags').value.split(' ');
+
+      if (!photoFile || !caption) {
+        document.getElementById('error-message').textContent = "Veuillez remplir tous les champs requis.";
+        return;
+      }
+
+      try {
+        // Uploader la photo dans Firebase Storage
+        const storageRef = ref(storage, `posts/${auth.currentUser.uid}/${Date.now()}_${photoFile.name}`);
+        await uploadBytes(storageRef, photoFile);
+        const photoURL = await getDownloadURL(storageRef);
+
+        // Ajouter le post dans Firestore
+        await addDoc(collection(db, "posts"), {
+          userId: auth.currentUser.uid,
+          photoURL: photoURL,
+          caption: caption,
+          hashtags: hashtags,
+          likes: [],
+          comments: [],
+          timestamp: new Date(),
+        });
+
+        alert("Post publié avec succès !");
+        window.location.href = "accueil.html";
+      } catch (error) {
+        document.getElementById('error-message').textContent = "Erreur lors de la publication : " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
