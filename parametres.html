@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TravelSnap - Paramètres</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .navbar {
+      background-color: #28a745;
+      padding: 10px;
+      color: white;
+      display: flex;
+      justify-content: space-around;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .settings-section {
+      margin-bottom: 20px;
+    }
+    .settings-section h2 {
+      margin-bottom: 10px;
+    }
+    .settings-section label {
+      display: block;
+      margin-bottom: 10px;
+    }
+    .settings-section input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .settings-section button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .settings-section button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: red;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Barre de navigation -->
+  <div class="navbar">
+    <a href="accueil.html">Accueil</a>
+    <a href="publication.html">Publication</a>
+    <a href="profil.html">Profil</a>
+    <a href="messagerie.html">Messagerie</a>
+    <a href="parametres.html">Paramètres</a>
+  </div>
+
+  <!-- Contenu de la page -->
+  <div class="container">
+    <h1>Paramètres</h1>
+
+    <!-- Paramètres du compte -->
+    <div class="settings-section">
+      <h2>Paramètres du compte</h2>
+      <label>
+        <input type="checkbox" id="private-account"> Compte privé
+      </label>
+      <button id="save-settings-btn">Enregistrer les paramètres</button>
+    </div>
+
+    <!-- Signaler un utilisateur -->
+    <div class="settings-section">
+      <h2>Signaler un utilisateur</h2>
+      <input type="text" id="report-username" placeholder="Nom d'utilisateur">
+      <button id="report-btn">Signaler</button>
+      <div class="error" id="report-error"></div>
+    </div>
+
+    <!-- Bloquer un utilisateur -->
+    <div class="settings-section">
+      <h2>Bloquer un utilisateur</h2>
+      <input type="text" id="block-username" placeholder="Nom d'utilisateur">
+      <button id="block-btn">Bloquer</button>
+      <div class="error" id="block-error"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      updateDoc,
+      getDoc,
+      collection,
+      addDoc,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCv4krgMmqK_EZpxGHoKe6fHkyy71VrDyc",
+      authDomain: "andalouse-88fee.firebaseapp.com",
+      projectId: "andalouse-88fee",
+      storageBucket: "andalouse-88fee.appspot.com",
+      messagingSenderId: "583802303191",
+      appId: "1:583802303191:web:7bdb6245ba14c024f2f692",
+    };
+
+    // Initialiser Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Vérifier l'état de connexion
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Rediriger vers la page de connexion si l'utilisateur n'est pas connecté
+        window.location.href = "index.html";
+      } else {
+        // Charger les paramètres du compte
+        loadAccountSettings(user.uid);
+      }
+    });
+
+    // Charger les paramètres du compte
+    async function loadAccountSettings(userId) {
+      const userDoc = doc(db, "users", userId);
+      const userSnapshot = await getDoc(userDoc);
+
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.data();
+        document.getElementById('private-account').checked = userData.isPrivate || false;
+      }
+    }
+
+    // Enregistrer les paramètres du compte
+    document.getElementById('save-settings-btn').addEventListener('click', async () => {
+      const isPrivate = document.getElementById('private-account').checked;
+      const userId = auth.currentUser.uid;
+      const userDoc = doc(db, "users", userId);
+
+      try {
+        await updateDoc(userDoc, {
+          isPrivate: isPrivate,
+        });
+        alert("Paramètres enregistrés avec succès !");
+      } catch (error) {
+        console.error("Erreur lors de l'enregistrement des paramètres :", error);
+      }
+    });
+
+    // Signaler un utilisateur
+    document.getElementById('report-btn').addEventListener('click', async () => {
+      const username = document.getElementById('report-username').value;
+
+      if (!username) {
+        document.getElementById('report-error').textContent = "Veuillez entrer un nom d'utilisateur.";
+        return;
+      }
+
+      try {
+        // Ajouter un signalement dans la collection `reports`
+        await addDoc(collection(db, "reports"), {
+          reporterId: auth.currentUser.uid,
+          reportedUsername: username,
+          timestamp: new Date(),
+        });
+
+        alert("Utilisateur signalé avec succès !");
+        document.getElementById('report-username').value = "";
+      } catch (error) {
+        document.getElementById('report-error').textContent = "Erreur lors du signalement : " + error.message;
+      }
+    });
+
+    // Bloquer un utilisateur
+    document.getElementById('block-btn').addEventListener('click', async () => {
+      const username = document.getElementById('block-username').value;
+
+      if (!username) {
+        document.getElementById('block-error').textContent = "Veuillez entrer un nom d'utilisateur.";
+        return;
+      }
+
+      try {
+        const userId = auth.currentUser.uid;
+        const userDoc = doc(db, "users", userId);
+
+        // Ajouter l'utilisateur à la liste des utilisateurs bloqués
+        await updateDoc(userDoc, {
+          blockedUsers: arrayUnion(username),
+        });
+
+        alert("Utilisateur bloqué avec succès !");
+        document.getElementById('block-username').value = "";
+      } catch (error) {
+        document.getElementById('block-error').textContent = "Erreur lors du blocage : " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
