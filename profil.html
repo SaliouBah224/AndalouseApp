@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TravelSnap - Profil</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .navbar {
+      background-color: #28a745;
+      padding: 10px;
+      color: white;
+      display: flex;
+      justify-content: space-around;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .profile-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .profile-header img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .profile-header h2 {
+      margin: 10px 0;
+    }
+    .profile-header p {
+      color: #666;
+    }
+    .profile-header button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .profile-header button:hover {
+      background-color: #218838;
+    }
+    .posts {
+      margin-top: 20px;
+    }
+    .post {
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 20px;
+    }
+    .post img {
+      width: 100%;
+      border-radius: 8px;
+    }
+    .edit-profile-form {
+      display: none;
+      margin-top: 20px;
+    }
+    .edit-profile-form input,
+    .edit-profile-form textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .edit-profile-form button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .edit-profile-form button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: red;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Barre de navigation -->
+  <div class="navbar">
+    <a href="accueil.html">Accueil</a>
+    <a href="publication.html">Publication</a>
+    <a href="profil.html">Profil</a>
+    <a href="messagerie.html">Messagerie</a>
+    <a href="parametres.html">Paramètres</a>
+  </div>
+
+  <!-- Contenu de la page -->
+  <div class="container">
+    <div class="profile-header">
+      <img id="profile-photo" src="" alt="Photo de profil">
+      <h2 id="username"></h2>
+      <p id="bio"></p>
+      <button id="edit-profile-btn">Modifier le profil</button>
+    </div>
+
+    <!-- Formulaire de modification du profil -->
+    <div class="edit-profile-form" id="edit-profile-form">
+      <input type="file" id="profile-photo-input" accept="image/*">
+      <textarea id="bio-input" placeholder="Ajouter une bio..."></textarea>
+      <button id="save-profile-btn">Enregistrer</button>
+      <div class="error" id="error-message"></div>
+    </div>
+
+    <!-- Posts de l'utilisateur -->
+    <div class="posts">
+      <h2>Mes posts</h2>
+      <div id="posts-container">
+        <!-- Les posts seront ajoutés ici dynamiquement -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      query,
+      where,
+      onSnapshot,
+      doc,
+      updateDoc,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+    import {
+      getStorage,
+      ref,
+      uploadBytes,
+      getDownloadURL,
+    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-storage.js";
+
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCv4krgMmqK_EZpxGHoKe6fHkyy71VrDyc",
+      authDomain: "andalouse-88fee.firebaseapp.com",
+      projectId: "andalouse-88fee",
+      storageBucket: "andalouse-88fee.appspot.com",
+      messagingSenderId: "583802303191",
+      appId: "1:583802303191:web:7bdb6245ba14c024f2f692",
+    };
+
+    // Initialiser Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // Vérifier l'état de connexion
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Rediriger vers la page de connexion si l'utilisateur n'est pas connecté
+        window.location.href = "index.html";
+      } else {
+        // Charger les informations du profil
+        loadProfile(user.uid);
+        // Charger les posts de l'utilisateur
+        loadUserPosts(user.uid);
+      }
+    });
+
+    // Charger les informations du profil
+    async function loadProfile(userId) {
+      const userDoc = doc(db, "users", userId);
+      onSnapshot(userDoc, (doc) => {
+        const userData = doc.data();
+        document.getElementById('profile-photo').src = userData.photoURL || "https://via.placeholder.com/100";
+        document.getElementById('username').textContent = userData.username;
+        document.getElementById('bio').textContent = userData.bio || "Aucune bio pour le moment.";
+      });
+    }
+
+    // Charger les posts de l'utilisateur
+    async function loadUserPosts(userId) {
+      const postsContainer = document.getElementById('posts-container');
+      const q = query(collection(db, "posts"), where("userId", "==", userId));
+
+      onSnapshot(q, (querySnapshot) => {
+        postsContainer.innerHTML = ""; // Vider le contenu actuel
+        querySnapshot.forEach((doc) => {
+          const post = doc.data();
+          const postElement = document.createElement('div');
+          postElement.classList.add('post');
+
+          // Afficher la photo
+          postElement.innerHTML = `
+            <img src="${post.photoURL}" alt="Post">
+            <p>${post.caption}</p>
+          `;
+
+          postsContainer.appendChild(postElement);
+        });
+      });
+    }
+
+    // Gérer la modification du profil
+    document.getElementById('edit-profile-btn').addEventListener('click', () => {
+      document.getElementById('edit-profile-form').style.display = 'block';
+    });
+
+    document.getElementById('save-profile-btn').addEventListener('click', async () => {
+      const photoFile = document.getElementById('profile-photo-input').files[0];
+      const bio = document.getElementById('bio-input').value;
+
+      try {
+        const userId = auth.currentUser.uid;
+        const userDoc = doc(db, "users", userId);
+
+        if (photoFile) {
+          // Uploader la nouvelle photo de profil
+          const storageRef = ref(storage, `profile-photos/${userId}`);
+          await uploadBytes(storageRef, photoFile);
+          const photoURL = await getDownloadURL(storageRef);
+
+          // Mettre à jour la photo de profil dans Firestore
+          await updateDoc(userDoc, {
+            photoURL: photoURL,
+          });
+        }
+
+        if (bio) {
+          // Mettre à jour la bio dans Firestore
+          await updateDoc(userDoc, {
+            bio: bio,
+          });
+        }
+
+        alert("Profil mis à jour avec succès !");
+        document.getElementById('edit-profile-form').style.display = 'none';
+      } catch (error) {
+        document.getElementById('error-message').textContent = "Erreur lors de la mise à jour du profil : " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
